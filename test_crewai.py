@@ -1,9 +1,11 @@
-from crew_agents import evaluate_answer
+import streamlit as st
 
-question = "What is a Python list?"
-answer = "A list is a collection of values in Python."
+audio_value = st.audio_input("🎤 Speak your answer")
 
-result = evaluate_answer(question, answer)
+if audio_value:
+    audio_bytes = audio_value.getvalue()
 
-print("\n📊 Evaluation:")
-print(result)
+    with open("answer.wav", "wb") as f:
+        f.write(audio_bytes)
+
+    st.success("Audio recorded successfully!")
