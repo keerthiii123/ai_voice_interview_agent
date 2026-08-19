@@ -3,4 +3,3 @@ streamlit-mic-recorder
 deepgram-sdk==7.6.0
 groq
 python-dotenv
- pyttsx3c   
