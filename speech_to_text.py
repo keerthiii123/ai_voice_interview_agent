@@ -1,23 +1,52 @@
 import os
-from deepgram import DeepgramClient, PrerecordedOptions
+from deepgram import DeepgramClient
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 
 
-def speech_to_text(audio_file):
-    api_key = os.getenv("DEEPGRAM_API_KEY")
+def transcribe_audio(audio_bytes):
 
-    deepgram = DeepgramClient(api_key)
+    try:
 
-    with open(audio_file, "rb") as audio:
-        buffer_data = audio.read()
+        if not DEEPGRAM_API_KEY:
+            return "Deepgram API key not configured."
 
-    options = PrerecordedOptions(
-        model="nova-2",
-        smart_format=True
-    )
+        client = DeepgramClient(DEEPGRAM_API_KEY)
 
-    response = deepgram.listen.rest.v("1").transcribe_file(
-        {"buffer": buffer_data},
-        options
-    )
+        payload = {
+            "buffer": audio_bytes
+        }
 
-    return response.results.channels[0].alternatives[0].transcript
+        options = {
+            "model": "nova-3",
+            "language": "en-IN",
+            "smart_format": True,
+            "punctuate": True
+        }
+
+        response = client.listen.rest.v1.transcribe_file(
+            payload,
+            options
+        )
+
+        text = (
+            response
+            .results
+            .channels[0]
+            .alternatives[0]
+            .transcript
+        )
+
+        if not text.strip():
+            return "No speech detected."
+
+        return text.strip()
+
+    except Exception as e:
+
+        print(f"Deepgram Error: {e}")
+
+        return "Speech transcription failed."
