@@ -1,5 +1,7 @@
 streamlit
 groq
-deepgram-sdk
+deepgram-sdk==7.6.0
 python-dotenv
+sounddevice
 pyttsx3
+numpy
