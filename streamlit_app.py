@@ -1,7 +1,6 @@
 import streamlit as st
 
 from speech_to_text import transcribe_audio
-from text_to_speech import speak
 from ai_interviewer import ask_ai
 from interview_report import generate_report
 
@@ -36,35 +35,25 @@ TOTAL_QUESTIONS = 5
 
 
 # ============================================================
-# SESSION STATE
+# SESSION STATE INITIALIZATION
 # ============================================================
 
-if "started" not in st.session_state:
-    st.session_state.started = False
+default_state = {
+    "started": False,
+    "question_number": 1,
+    "question": "Tell me about yourself.",
+    "conversation": [],
+    "history": [],
+    "completed": False,
+    "report": "",
+    "last_audio_id": None,
+    "answer_submitted": False,
+}
 
-if "question_number" not in st.session_state:
-    st.session_state.question_number = 1
+for key, value in default_state.items():
 
-if "question" not in st.session_state:
-    st.session_state.question = "Tell me about yourself."
-
-if "conversation" not in st.session_state:
-    st.session_state.conversation = []
-
-if "history" not in st.session_state:
-    st.session_state.history = []
-
-if "completed" not in st.session_state:
-    st.session_state.completed = False
-
-if "report" not in st.session_state:
-    st.session_state.report = ""
-
-if "current_audio_id" not in st.session_state:
-    st.session_state.current_audio_id = None
-
-if "answer_submitted" not in st.session_state:
-    st.session_state.answer_submitted = False
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 
 # ============================================================
@@ -74,18 +63,8 @@ if "answer_submitted" not in st.session_state:
 if not st.session_state.started:
 
     st.info(
-        "Click the button below to start your AI technical interview."
+        "Click the button below to start your Python / AI Engineer interview."
     )
-
-    st.markdown("""
-    ### Interview Process
-
-    1. 🤖 AI asks a technical question
-    2. 🎙️ You answer using your microphone
-    3. 📝 Deepgram converts your speech to text
-    4. 🧠 AI generates the next question
-    5. 📊 Final AI-powered interview report
-    """)
 
     if st.button(
         "🚀 Start Interview",
@@ -99,14 +78,14 @@ if not st.session_state.started:
         st.session_state.history = []
         st.session_state.completed = False
         st.session_state.report = ""
-        st.session_state.current_audio_id = None
+        st.session_state.last_audio_id = None
         st.session_state.answer_submitted = False
 
         st.rerun()
 
 
 # ============================================================
-# INTERVIEW
+# INTERVIEW SECTION
 # ============================================================
 
 elif not st.session_state.completed:
@@ -114,10 +93,9 @@ elif not st.session_state.completed:
     question_number = st.session_state.question_number
     question = st.session_state.question
 
-
-    # --------------------------------------------------------
+    # ========================================================
     # PROGRESS
-    # --------------------------------------------------------
+    # ========================================================
 
     st.progress(
         question_number / TOTAL_QUESTIONS
@@ -127,47 +105,27 @@ elif not st.session_state.completed:
         f"Question {question_number}/{TOTAL_QUESTIONS}"
     )
 
-
-    # --------------------------------------------------------
+    # ========================================================
     # AI QUESTION
-    # --------------------------------------------------------
+    # ========================================================
 
     st.markdown(
         f"### 🤖 AI: {question}"
     )
 
-
-    # --------------------------------------------------------
-    # PLAY QUESTION
-    # --------------------------------------------------------
+    # ========================================================
+    # INTERVIEWER
+    # ========================================================
 
     st.markdown("### 🔊 Interviewer")
 
-    if st.button(
-        "🔊 Play Question",
-        use_container_width=True
-    ):
+    st.info(
+        "Please read the question above and answer using the microphone."
+    )
 
-        try:
-
-            with st.spinner("AI is speaking..."):
-
-                speak(question)
-
-            st.success("Question played successfully!")
-
-        except Exception as e:
-
-            st.warning(
-                f"Text-to-Speech is unavailable: {e}"
-            )
-
-
-    # --------------------------------------------------------
+    # ========================================================
     # RECORD ANSWER
-    # --------------------------------------------------------
-
-    st.markdown("---")
+    # ========================================================
 
     st.markdown("### 🎙️ Record Your Answer")
 
@@ -179,10 +137,9 @@ elif not st.session_state.completed:
         "🎤 Record your answer"
     )
 
-
-    # --------------------------------------------------------
-    # PROCESS AUDIO
-    # --------------------------------------------------------
+    # ========================================================
+    # AUDIO AVAILABLE
+    # ========================================================
 
     if audio is not None:
 
@@ -191,19 +148,23 @@ elif not st.session_state.completed:
             format="audio/wav"
         )
 
+        # ----------------------------------------------------
+        # CREATE UNIQUE AUDIO ID
+        # ----------------------------------------------------
 
-        # Create unique ID for current recording
+        audio_bytes = audio.getvalue()
 
-        audio_id = hash(audio.getvalue())
+        audio_id = hash(audio_bytes)
 
+        # ----------------------------------------------------
+        # RESET SUBMISSION STATE FOR NEW RECORDING
+        # ----------------------------------------------------
 
-        # Reset submit state for a new recording
+        if st.session_state.last_audio_id != audio_id:
 
-        if st.session_state.current_audio_id != audio_id:
-
-            st.session_state.current_audio_id = audio_id
             st.session_state.answer_submitted = False
 
+            st.session_state.last_audio_id = audio_id
 
         # ----------------------------------------------------
         # SUBMIT ANSWER
@@ -216,163 +177,156 @@ elif not st.session_state.completed:
                 use_container_width=True
             ):
 
+                st.session_state.answer_submitted = True
+
+                # ====================================================
+                # SPEECH TO TEXT
+                # ====================================================
+
                 with st.spinner(
                     "🎧 Converting your speech to text..."
                 ):
 
                     try:
 
-                        # Send browser audio directly
-                        # to Deepgram
-
                         answer = transcribe_audio(
-                            audio.getvalue()
+                            audio_bytes
                         )
-
-
-                        # ------------------------------------------------
-                        # CHECK RESULT
-                        # ------------------------------------------------
-
-                        if not answer:
-
-                            st.error(
-                                "No answer detected. "
-                                "Please record your answer again."
-                            )
-
-                            st.stop()
-
-
-                        if answer.startswith(
-                            "Speech-to-Text Error:"
-                        ):
-
-                            st.error(answer)
-
-                            st.warning(
-                                "Please record your answer again."
-                            )
-
-                            st.stop()
-
-
-                        if answer == "No speech detected.":
-
-                            st.warning(
-                                "No speech detected. "
-                                "Please speak clearly and try again."
-                            )
-
-                            st.stop()
-
-
-                        # ------------------------------------------------
-                        # DISPLAY ANSWER
-                        # ------------------------------------------------
-
-                        st.success(
-                            "Answer recorded successfully!"
-                        )
-
-                        st.markdown(
-                            "### 📝 Your Answer"
-                        )
-
-                        st.write(answer)
-
-
-                        # ------------------------------------------------
-                        # SAVE CONVERSATION
-                        # ------------------------------------------------
-
-                        st.session_state.conversation.append(
-                            {
-                                "question": question,
-                                "answer": answer
-                            }
-                        )
-
-
-                        st.session_state.history.append(
-                            f"Interviewer: {question}\n"
-                            f"Candidate: {answer}"
-                        )
-
-
-                        st.session_state.answer_submitted = True
-
-
-                        # ------------------------------------------------
-                        # NEXT QUESTION
-                        # ------------------------------------------------
-
-                        if question_number < TOTAL_QUESTIONS:
-
-                            with st.spinner(
-                                "🧠 Generating next interview question..."
-                            ):
-
-                                try:
-
-                                    next_question = ask_ai(
-                                        "\n\n".join(
-                                            st.session_state.history
-                                        )
-                                    )
-
-                                except Exception as e:
-
-                                    st.error(
-                                        f"AI question generation failed: {e}"
-                                    )
-
-                                    st.stop()
-
-
-                            if not next_question:
-
-                                st.error(
-                                    "Unable to generate the next question."
-                                )
-
-                                st.stop()
-
-
-                            st.session_state.question = (
-                                next_question
-                            )
-
-                            st.session_state.question_number += 1
-
-                            st.session_state.current_audio_id = None
-
-                            st.session_state.answer_submitted = False
-
-                            st.rerun()
-
-
-                        # ------------------------------------------------
-                        # INTERVIEW COMPLETED
-                        # ------------------------------------------------
-
-                        else:
-
-                            st.session_state.completed = True
-
-                            st.rerun()
-
 
                     except Exception as e:
+
+                        st.session_state.answer_submitted = False
 
                         st.error(
                             f"Speech-to-Text Error: {e}"
                         )
 
                         st.info(
-                            "Please check your microphone and "
-                            "Deepgram API configuration."
+                            "Please check your DEEPGRAM_API_KEY "
+                            "in Streamlit Secrets."
                         )
+
+                        st.stop()
+
+                # ====================================================
+                # VALIDATE ANSWER
+                # ====================================================
+
+                if (
+                    not answer
+                    or not answer.strip()
+                    or answer.lower().startswith(
+                        "speech-to-text error"
+                    )
+                ):
+
+                    st.session_state.answer_submitted = False
+
+                    st.error(
+                        "Could not understand your answer. "
+                        "Please record again."
+                    )
+
+                    st.stop()
+
+                # ====================================================
+                # DISPLAY ANSWER
+                # ====================================================
+
+                st.success(
+                    "Answer recorded successfully!"
+                )
+
+                st.markdown(
+                    "### 📝 Your Answer"
+                )
+
+                st.write(answer)
+
+                # ====================================================
+                # SAVE CONVERSATION
+                # ====================================================
+
+                st.session_state.conversation.append(
+                    {
+                        "question": question,
+                        "answer": answer
+                    }
+                )
+
+                st.session_state.history.append(
+                    f"Interviewer: {question}\n"
+                    f"Candidate: {answer}"
+                )
+
+                # ====================================================
+                # GENERATE NEXT QUESTION
+                # ====================================================
+
+                if question_number < TOTAL_QUESTIONS:
+
+                    with st.spinner(
+                        "🤖 Generating next interview question..."
+                    ):
+
+                        try:
+
+                            history_text = "\n\n".join(
+                                st.session_state.history
+                            )
+
+                            next_question = ask_ai(
+                                history_text
+                            )
+
+                        except Exception as e:
+
+                            st.error(
+                                f"Unable to generate the next question: {e}"
+                            )
+
+                            st.stop()
+
+                    # ------------------------------------------------
+                    # VALIDATE NEXT QUESTION
+                    # ------------------------------------------------
+
+                    if (
+                        not next_question
+                        or not next_question.strip()
+                    ):
+
+                        st.error(
+                            "Unable to generate the next question."
+                        )
+
+                        st.stop()
+
+                    # ------------------------------------------------
+                    # SAVE NEXT QUESTION
+                    # ------------------------------------------------
+
+                    st.session_state.question = (
+                        next_question.strip()
+                    )
+
+                    st.session_state.question_number += 1
+
+                    st.session_state.last_audio_id = None
+
+                    st.session_state.answer_submitted = False
+
+                    st.rerun()
+
+                # ====================================================
+                # INTERVIEW COMPLETED
+                # ====================================================
+
+                else:
+
+                    st.session_state.completed = True
+
+                    st.rerun()
 
 
 # ============================================================
@@ -381,19 +335,22 @@ elif not st.session_state.completed:
 
 else:
 
-    st.success("🎉 Interview Completed!")
+    st.success(
+        "🎉 Interview Completed!"
+    )
 
-    st.header("📊 Final Interview Report")
+    st.header(
+        "📊 Final Interview Report"
+    )
 
-
-    # --------------------------------------------------------
+    # ========================================================
     # GENERATE REPORT
-    # --------------------------------------------------------
+    # ========================================================
 
     if not st.session_state.report:
 
         with st.spinner(
-            "🧠 Generating your interview feedback..."
+            "📊 Generating your interview feedback..."
         ):
 
             try:
@@ -409,23 +366,21 @@ else:
                     f"Error: {e}"
                 )
 
-
-    # --------------------------------------------------------
+    # ========================================================
     # DISPLAY REPORT
-    # --------------------------------------------------------
+    # ========================================================
 
     st.markdown(
         st.session_state.report
     )
 
-
-    # --------------------------------------------------------
+    # ========================================================
     # INTERVIEW DETAILS
-    # --------------------------------------------------------
+    # ========================================================
 
-    st.markdown("---")
-
-    st.subheader("📋 Interview Details")
+    st.markdown(
+        "### 📋 Interview Details"
+    )
 
     st.write(
         f"**Total Questions:** {TOTAL_QUESTIONS}"
@@ -436,10 +391,40 @@ else:
         f"{len(st.session_state.conversation)}"
     )
 
+    # ========================================================
+    # VIEW CONVERSATION
+    # ========================================================
 
-    # --------------------------------------------------------
+    with st.expander(
+        "💬 View Interview Conversation"
+    ):
+
+        for index, item in enumerate(
+            st.session_state.conversation,
+            start=1
+        ):
+
+            st.markdown(
+                f"**Question {index}:**"
+            )
+
+            st.write(
+                item["question"]
+            )
+
+            st.markdown(
+                "**Candidate:**"
+            )
+
+            st.write(
+                item["answer"]
+            )
+
+            st.divider()
+
+    # ========================================================
     # DOWNLOAD REPORT
-    # --------------------------------------------------------
+    # ========================================================
 
     st.download_button(
         label="📥 Download Interview Report",
@@ -449,36 +434,36 @@ else:
         use_container_width=True
     )
 
+    # ========================================================
+    # DOWNLOAD CONVERSATION
+    # ========================================================
 
-    # --------------------------------------------------------
-    # SHOW CONVERSATION
-    # --------------------------------------------------------
+    conversation_text = ""
 
-    with st.expander("💬 View Interview Conversation"):
+    for index, item in enumerate(
+        st.session_state.conversation,
+        start=1
+    ):
 
-        for index, item in enumerate(
-            st.session_state.conversation,
-            start=1
-        ):
+        conversation_text += (
+            f"\nQUESTION {index}\n"
+            f"{item['question']}\n\n"
+            f"CANDIDATE ANSWER\n"
+            f"{item['answer']}\n"
+            f"\n{'=' * 60}\n"
+        )
 
-            st.markdown(
-                f"### Question {index}"
-            )
+    st.download_button(
+        label="📄 Download Interview Conversation",
+        data=conversation_text,
+        file_name="Interview_Conversation.txt",
+        mime="text/plain",
+        use_container_width=True
+    )
 
-            st.write(
-                f"**🤖 AI:** {item['question']}"
-            )
-
-            st.write(
-                f"**🎙️ Candidate:** {item['answer']}"
-            )
-
-            st.markdown("---")
-
-
-    # --------------------------------------------------------
-    # RESTART
-    # --------------------------------------------------------
+    # ========================================================
+    # RESTART INTERVIEW
+    # ========================================================
 
     if st.button(
         "🔄 Start New Interview",

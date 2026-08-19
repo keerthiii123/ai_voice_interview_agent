@@ -1,23 +1,24 @@
 import os
 
-from deepgram import DeepgramClient
 from dotenv import load_dotenv
+from deepgram import DeepgramClient
 
+
+# Load .env from project directory
 load_dotenv()
+
 
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 
 
 def transcribe_audio(audio_bytes):
 
-    if not DEEPGRAM_API_KEY:
-        raise ValueError(
-            "DEEPGRAM_API_KEY is not configured."
-        )
-
     try:
 
-        print("Sending audio to Deepgram...")
+        if not DEEPGRAM_API_KEY:
+            raise ValueError(
+                "DEEPGRAM_API_KEY is not configured."
+            )
 
         client = DeepgramClient(
             DEEPGRAM_API_KEY
@@ -53,6 +54,4 @@ def transcribe_audio(audio_bytes):
 
         print("Deepgram Error:", e)
 
-        raise Exception(
-            f"Speech-to-Text Error: {e}"
-        )
+        return f"Speech-to-Text Error: {e}"
