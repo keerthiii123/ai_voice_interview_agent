@@ -1,0 +1,7 @@
+streamlit
+groq
+deepgram-sdk
+sounddevice
+numpy
+python-dotenv
+pyttsx3

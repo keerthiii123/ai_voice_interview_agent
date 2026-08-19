@@ -1,0 +1,8 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+candidate_answer.wav
+Interview_Report.txt
+.streamlit/secrets.toml
