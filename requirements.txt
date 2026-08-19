@@ -1,7 +1,6 @@
 streamlit
-groq
+streamlit-mic-recorder
 deepgram-sdk==7.6.0
+groq
 python-dotenv
-sounddevice
 pyttsx3
-numpy
